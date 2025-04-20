@@ -7,26 +7,20 @@ from typing import Dict, List, Tuple, Set
 import time
 
 class DDoSDetector:
-    def __init__(self, model_path: str = 'models/random_forest_model.pkl', 
-                 detection_threshold: float = 0.8,
-                 attack_count_threshold: int = 5):
-        """
-        Initialize the DDoS detector with a model
-        
-        Args:
-            model_path: Path to the saved model file
-            detection_threshold: Probability threshold for classification
-            attack_count_threshold: Number of detected attacks before blocking
-        """
-        # Load the model
-        model_data = joblib.load(model_path)
-        self.model = model_data.get('model')
-        self.label_encoder = model_data.get('label_encoder')
-        
+    def __init__(self, model_path, detection_threshold, attack_count_threshold):
+        """Initialize the DDoS Detector"""
         self.detection_threshold = detection_threshold
         self.attack_count_threshold = attack_count_threshold
-        self.suspicious_ips = {}  # IP -> {count, first_seen, last_seen, attack_types}
         
+        # Load the model
+        with open(model_path, 'rb') as model_file:
+            self.model = pickle.load(model_file)
+            print(type(model))
+
+        if not hasattr(self.model, 'predict'):
+            raise ValueError("Loaded model is not a valid RandomForestClassifier")
+
+        self.suspicious_ips = {}
         logging.info(f"DDoS detector initialized with model from {model_path}")
     
     def detect(self, features_df: pd.DataFrame) -> Tuple[List[Dict], Set[str]]:
