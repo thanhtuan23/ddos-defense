@@ -58,6 +58,5 @@ sudo systemctl restart ddos-defense
 
 ### 6. Chạy giao diện Web (tùy chọn):
 ```bash
-pip3 install streamlit
 streamlit run web_ui.py
 ```
