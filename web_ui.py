@@ -179,7 +179,7 @@ if page == "Dashboard":
         counter += 1
         if auto_refresh:
             time.sleep(refresh_interval)
-            st.experimental_rerun()
+            st.rerun()
         else:
             break
 
@@ -204,7 +204,7 @@ elif page == "Blocked IPs":
             if st.button(f"Unblock {ip}"):
                 unblock_ip(ip)
                 time.sleep(1)
-                st.experimental_rerun()
+                st.rerun()
 
 elif page == "Manual Block":
     st.title("Manually Block IP")
