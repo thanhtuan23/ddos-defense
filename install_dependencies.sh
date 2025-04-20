@@ -3,7 +3,7 @@
 
 echo "Installing required packages..."
 sudo apt-get update
-sudo apt-get install -y python3-pip tcpdump iptables python3-dev libpcap-dev
+sudo apt-get install -y python3-pip tcpdump iptables python3-dev libpcap-dev libnfnetlink-dev libnetfilter-queue-dev
 
 echo "Installing Python libraries..."
 

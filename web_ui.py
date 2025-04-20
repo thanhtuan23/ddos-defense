@@ -18,7 +18,7 @@ def get_status():
         response = requests.get(
             f"{API_URL}/status",
             # headers={"X-API-Key": API_KEY},
-            timeout=5
+            timeout=2
         )
         return response.json()
     except Exception as e:
