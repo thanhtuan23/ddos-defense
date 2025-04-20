@@ -36,9 +36,18 @@ sudo journalctl -u ddos-defense
 ```
 
 ### 4. Điều khiển dịch vụ:
-- Khởi động: sudo systemctl start ddos-defense
-- Dừng: sudo systemctl stop ddos-defense
-- Khởi động lại: sudo systemctl restart ddos-defense
+- Khởi động:
+```bash
+sudo systemctl start ddos-defense
+```
+- Dừng: 
+```bash
+sudo systemctl stop ddos-defense
+```
+- Khởi động lại:
+```bash
+sudo systemctl restart ddos-defense
+```
 ### 5. Sử dụng API:
 - Bạn có thể tương tác với hệ thống thông qua API:
 
