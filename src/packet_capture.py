@@ -27,15 +27,30 @@ class PacketCapture:
         self.flow_data: DefaultDict[str, Dict] = defaultdict(dict)
         self.lock = threading.Lock()
         
+    # src/packet_capture.py
+
     def start_capture(self):
         """Start packet capturing in a separate thread"""
         self.running = True
-        self.raw_socket = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
         
-        capture_thread = threading.Thread(target=self._capture_packets)
-        capture_thread.daemon = True
-        capture_thread.start()
-        logging.info("Packet capture started")
+        try:
+            # Tạo raw socket
+            self.raw_socket = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
+            
+            # Nếu interface không phải "any", thì bind vào interface cụ thể
+            interface = getattr(config, "PACKET_CAPTURE_INTERFACE", "any")
+            if interface != "any":
+                self.raw_socket.bind((interface, 0))
+            
+            # Tiếp tục như bình thường
+            capture_thread = threading.Thread(target=self._capture_packets)
+            capture_thread.daemon = True
+            capture_thread.start()
+            
+            logging.info(f"Packet capture started on interface {interface}")
+        except Exception as e:
+            logging.error(f"Failed to start capture: {str(e)}")
+            logging.exception(e)
     
     def stop_capture(self):
         """Stop packet capturing"""

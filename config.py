@@ -3,7 +3,7 @@ import os
 
 # System Configuration
 SAMPLE_INTERVAL = 5  # Seconds between feature extraction and detection runs
-PACKET_CAPTURE_INTERFACE = "eth0"  # Network interface to monitor
+PACKET_CAPTURE_INTERFACE = "any"  # Network interface to monitor
 
 # Detection Settings
 MODEL_PATH = os.path.join('models', 'random_forest_model.pkl')
