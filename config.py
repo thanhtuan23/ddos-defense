@@ -27,7 +27,7 @@ EMAIL_CONFIG = {
     'recipient': 'admin@example.com'
 }
 
-WEBHOOK_URL = 'https://example.com/webhook/ddos-alerts'
+# WEBHOOK_URL = 'https://example.com/webhook/ddos-alerts'
 
 # API Settings
 API_HOST = '127.0.0.1'

@@ -25,6 +25,7 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
+
 # Add console handler for important messages
 console = logging.StreamHandler()
 console.setLevel(logging.WARNING)

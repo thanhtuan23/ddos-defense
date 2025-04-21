@@ -13,14 +13,16 @@ class DDoSDetector:
         """Initialize the DDoS Detector"""
         self.detection_threshold = detection_threshold
         self.attack_count_threshold = attack_count_threshold
-        
+
         # Load the model
         with open(model_path, 'rb') as model_file:
-            self.model = pickle.load(model_file)
-            print(type(model))
+            self.model = pickle.load(model_file)  # Assign the loaded model to self.model
+
+        # Debugging: Print the type of the loaded model
+        print(type(self.model))
 
         if not hasattr(self.model, 'predict'):
-            raise ValueError("Loaded model is not a valid RandomForestClassifier")
+            raise ValueError("Loaded model is not a valid classifier")
 
         self.suspicious_ips = {}
         logging.info(f"DDoS detector initialized with model from {model_path}")
