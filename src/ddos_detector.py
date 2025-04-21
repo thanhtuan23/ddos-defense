@@ -12,36 +12,28 @@ class DDoSDetector:
                  attack_count_threshold: int = 5):
         """
         Initialize the DDoS detector with a model
-        
-        Args:
-            model_path: Path to the saved model file
-            detection_threshold: Probability threshold for classification
-            attack_count_threshold: Number of detected attacks before blocking
         """
         try:
             # Load the model
-            model_data = joblib.load(model_path)
+            self.model_data = joblib.load(model_path)
             
             # Kiểm tra loại model_data
-            if isinstance(model_data, dict):
-                self.model = model_data.get('model')
-                self.label_encoder = model_data.get('label_encoder')
+            if isinstance(self.model_data, dict):
+                self.model = self.model_data.get('model')
+                self.label_encoder = self.model_data.get('label_encoder')
             else:
-                self.model = model_data
-                # Tạo label encoder mới nếu cần
+                self.model = self.model_data
+                # Tạo label encoder mới
                 from sklearn.preprocessing import LabelEncoder
                 self.label_encoder = LabelEncoder()
                 self.label_encoder.fit(['Benign', 'Syn', 'UDP', 'LDAP', 'MSSQL', 
                                       'NetBIOS', 'Portmap', 'UDPLag'])
             
-            print(f"Model type: {type(self.model)}")
-            print(f"Label encoder type: {type(self.label_encoder)}")
-            
             self.detection_threshold = detection_threshold
             self.attack_count_threshold = attack_count_threshold
-            self.suspicious_ips = {}
+            self.suspicious_ips = {}  # IP -> {count, first_seen, last_seen, attack_types}
             
-            logging.info("DDoS detector initialized successfully")
+            logging.info(f"DDoS detector initialized with model from {model_path}")
             
         except Exception as e:
             logging.error(f"Error initializing DDoS detector: {str(e)}")
@@ -50,12 +42,6 @@ class DDoSDetector:
     def detect(self, features_df) -> Tuple[List[Dict], Set[str]]:
         """
         Detect DDoS attacks in the provided features
-        
-        Args:
-            features_df: DataFrame containing extracted features
-            
-        Returns:
-            Tuple of (detection_results, ips_to_block)
         """
         if features_df.empty:
             return [], set()

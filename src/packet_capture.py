@@ -6,6 +6,7 @@ import threading
 from collections import defaultdict
 from typing import Dict, List, Tuple, DefaultDict
 import logging
+import config
 
 logging.basicConfig(
     filename='logs/ddos_events.log',
