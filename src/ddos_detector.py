@@ -1,33 +1,53 @@
 # src/ddos_detector.py
-import pandas as pd
-import numpy as np
 import joblib
 import logging
+import numpy as np
+from datetime import datetime
 from typing import Dict, List, Tuple, Set
 import time
-import pickle
-
 
 class DDoSDetector:
-    def __init__(self, model_path, detection_threshold, attack_count_threshold):
-        """Initialize the DDoS Detector"""
-        self.detection_threshold = detection_threshold
-        self.attack_count_threshold = attack_count_threshold
-
-        # Load the model
-        with open(model_path, 'rb') as model_file:
-            self.model = pickle.load(model_file)  # Assign the loaded model to self.model
-
-        # Debugging: Print the type of the loaded model
-        print(type(self.model))
-
-        if not hasattr(self.model, 'predict'):
-            raise ValueError("Loaded model is not a valid classifier")
-
-        self.suspicious_ips = {}
-        logging.info(f"DDoS detector initialized with model from {model_path}")
+    def __init__(self, model_path: str = 'models/random_forest_model.pkl', 
+                 detection_threshold: float = 0.8,
+                 attack_count_threshold: int = 5):
+        """
+        Initialize the DDoS detector with a model
+        
+        Args:
+            model_path: Path to the saved model file
+            detection_threshold: Probability threshold for classification
+            attack_count_threshold: Number of detected attacks before blocking
+        """
+        try:
+            # Load the model
+            model_data = joblib.load(model_path)
+            
+            # Kiểm tra loại model_data
+            if isinstance(model_data, dict):
+                self.model = model_data.get('model')
+                self.label_encoder = model_data.get('label_encoder')
+            else:
+                self.model = model_data
+                # Tạo label encoder mới nếu cần
+                from sklearn.preprocessing import LabelEncoder
+                self.label_encoder = LabelEncoder()
+                self.label_encoder.fit(['Benign', 'Syn', 'UDP', 'LDAP', 'MSSQL', 
+                                      'NetBIOS', 'Portmap', 'UDPLag'])
+            
+            print(f"Model type: {type(self.model)}")
+            print(f"Label encoder type: {type(self.label_encoder)}")
+            
+            self.detection_threshold = detection_threshold
+            self.attack_count_threshold = attack_count_threshold
+            self.suspicious_ips = {}
+            
+            logging.info("DDoS detector initialized successfully")
+            
+        except Exception as e:
+            logging.error(f"Error initializing DDoS detector: {str(e)}")
+            raise
     
-    def detect(self, features_df: pd.DataFrame) -> Tuple[List[Dict], Set[str]]:
+    def detect(self, features_df) -> Tuple[List[Dict], Set[str]]:
         """
         Detect DDoS attacks in the provided features
         
@@ -40,79 +60,81 @@ class DDoSDetector:
         if features_df.empty:
             return [], set()
         
-        # Save IP addresses
-        ip_addresses = None
-        if 'src_ip' in features_df.columns and 'dst_ip' in features_df.columns:
-            ip_addresses = features_df[['src_ip', 'dst_ip']].copy()
-            features_df = features_df.drop(['src_ip', 'dst_ip'], axis=1)
-        
-        # Run prediction
-        predictions_proba = self.model.predict_proba(features_df)
-        predictions = self.model.predict(features_df)
-        
-        # Decode class labels
-        attack_labels = [self.label_encoder.inverse_transform([p])[0] for p in predictions]
-        
-        # Prepare results
-        results = []
-        ips_to_block = set()
-        
-        current_time = time.time()
-        
-        for i in range(len(predictions)):
-            if ip_addresses is not None:
-                src_ip = ip_addresses.iloc[i]['src_ip']
-                dst_ip = ip_addresses.iloc[i]['dst_ip']
-            else:
-                src_ip = "unknown"
-                dst_ip = "unknown"
+        try:
+            # Save IP addresses
+            ip_addresses = None
+            if 'src_ip' in features_df.columns and 'dst_ip' in features_df.columns:
+                ip_addresses = features_df[['src_ip', 'dst_ip']].copy()
+                features_df = features_df.drop(['src_ip', 'dst_ip'], axis=1)
             
-            attack_type = attack_labels[i]
-            max_probability = max(predictions_proba[i])
+            # Run prediction
+            predictions_proba = self.model.predict_proba(features_df)
+            predictions = self.model.predict(features_df)
             
-            # Only consider as attack if not benign and above threshold
-            is_attack = attack_type != 'Benign' and max_probability >= self.detection_threshold
+            # Decode class labels
+            attack_labels = [self.label_encoder.inverse_transform([p])[0] for p in predictions]
             
-            result = {
-                'src_ip': src_ip,
-                'dst_ip': dst_ip,
-                'attack_type': attack_type,
-                'confidence': max_probability,
-                'is_attack': is_attack
-            }
+            # Prepare results
+            results = []
+            ips_to_block = set()
             
-            results.append(result)
+            current_time = time.time()
             
-            # Track suspicious IPs
-            if is_attack:
-                if src_ip not in self.suspicious_ips:
-                    self.suspicious_ips[src_ip] = {
-                        'count': 0,
-                        'first_seen': current_time,
-                        'last_seen': current_time,
-                        'attack_types': set()
-                    }
+            for i in range(len(predictions)):
+                if ip_addresses is not None:
+                    src_ip = ip_addresses.iloc[i]['src_ip']
+                    dst_ip = ip_addresses.iloc[i]['dst_ip']
+                else:
+                    src_ip = "unknown"
+                    dst_ip = "unknown"
                 
-                record = self.suspicious_ips[src_ip]
-                record['count'] += 1
-                record['last_seen'] = current_time
-                record['attack_types'].add(attack_type)
+                attack_type = attack_labels[i]
+                max_probability = max(predictions_proba[i])
                 
-                # Log the detection
-                logging.warning(
-                    f"Potential {attack_type} attack detected from {src_ip} to {dst_ip} "
-                    f"with {max_probability:.2f} confidence (count: {record['count']})"
-                )
+                # Only consider as attack if not benign and above threshold
+                is_attack = attack_type != 'Benign' and max_probability >= self.detection_threshold
                 
-                # Check if we should block
-                if record['count'] >= self.attack_count_threshold:
-                    ips_to_block.add(src_ip)
-                    logging.warning(f"IP {src_ip} exceeded threshold with {record['count']} attacks. Marked for blocking.")
-        
-        # Clean up old records (older than 1 hour)
-        self._cleanup_old_records(current_time - 3600)
-        
-        return results, ips_to_block
+                result = {
+                    'src_ip': src_ip,
+                    'dst_ip': dst_ip,
+                    'attack_type': attack_type,
+                    'confidence': max_probability,
+                    'is_attack': is_attack
+                }
+                
+                results.append(result)
+                
+                if is_attack:
+                    if src_ip not in self.suspicious_ips:
+                        self.suspicious_ips[src_ip] = {
+                            'count': 0,
+                            'first_seen': current_time,
+                            'last_seen': current_time,
+                            'attack_types': set()
+                        }
+                    
+                    record = self.suspicious_ips[src_ip]
+                    record['count'] += 1
+                    record['last_seen'] = current_time
+                    record['attack_types'].add(attack_type)
+                    
+                    logging.warning(
+                        f"Potential {attack_type} attack detected from {src_ip} to {dst_ip} "
+                        f"with {max_probability:.2f} confidence (count: {record['count']})"
+                    )
+                    
+                    if record['count'] >= self.attack_count_threshold:
+                        ips_to_block.add(src_ip)
+                        logging.warning(f"IP {src_ip} exceeded threshold with {record['count']} attacks")
+            
+            # Clean up old records
+            self._cleanup_old_records(current_time - 3600)
+            
+            return results, ips_to_block
+            
+        except Exception as e:
+            logging.error(f"Error in detect method: {str(e)}")
+            return [], set()
     
     def _cleanup_old_records(self, cutoff_time: float):
         """Remove tracking for IPs not seen since cutoff_time"""
