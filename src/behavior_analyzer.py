@@ -3,11 +3,7 @@ import time
 import numpy as np
 from scipy import stats
 from collections import defaultdict
-from typing import Dict, List, Set
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-
+from typing import Dict, List
 
 class BehaviorAnalyzer:
     def __init__(self, window_size: int = 3600):
