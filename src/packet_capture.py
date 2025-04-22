@@ -137,6 +137,28 @@ class PacketCapture:
             'attack_types': set()
         })
     
+    def start_capture(self):
+        """Start packet capturing in a separate thread"""
+        self.running = True
+        
+        try:
+            # Interface "any" bắt tất cả gói tin
+            if config.PACKET_CAPTURE_INTERFACE == "any":
+                self.raw_socket = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
+            else:
+                # Tạo socket cho interface cụ thể
+                self.raw_socket = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
+                self.raw_socket.bind((config.PACKET_CAPTURE_INTERFACE, 0))
+            
+            capture_thread = threading.Thread(target=self._capture_packets)
+            capture_thread.daemon = True
+            capture_thread.start()
+            
+            logging.info(f"Packet capture started on interface {config.PACKET_CAPTURE_INTERFACE}")
+        except Exception as e:
+            logging.error(f"Failed to start capture: {str(e)}")
+            logging.exception(e)
+
     def _process_packet(self, packet_data: bytes):
         try:
             # Parse Ethernet header
@@ -391,3 +413,20 @@ class PacketCapture:
                     del self.flows[flow_key]
         
         return result
+    
+    def stop_capture(self):
+        """Stop packet capturing"""
+        self.running = False
+        if self.raw_socket:
+            self.raw_socket.close()
+        logging.info("Packet capture stopped")
+
+    def _capture_packets(self):
+        """Main packet capturing loop"""
+        while self.running:
+            try:
+                packet_data, _ = self.raw_socket.recvfrom(65535)
+                self._process_packet(packet_data)
+            except Exception as e:
+                if self.running:  # Only log errors if we're still supposed to be running
+                    logging.error(f"Error in packet capture: {str(e)}")
