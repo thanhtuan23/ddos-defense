@@ -5,6 +5,7 @@ import numpy as np
 from datetime import datetime
 from typing import Dict, List, Tuple, Set
 import time
+import config
 
 class DDoSDetector:
     def __init__(self, model_path: str = config.MODEL_PATH,
