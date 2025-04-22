@@ -63,9 +63,9 @@ class DDoSDefenseService:
         
         # Create alert system
         self.alert_system = AlertSystem(
-            enable_email=config.ENABLE_EMAIL_ALERTS,
+            enable_email=config.ALERT_SETTINGS['ENABLE_EMAIL'],
             # enable_webhook=config.ENABLE_WEBHOOK_ALERTS,
-            email_config=config.EMAIL_CONFIG,
+            email_config=config.ALERT_SETTINGS['EMAIL_SETTINGS'],
             # webhook_url=config.WEBHOOK_URL
         )
 
