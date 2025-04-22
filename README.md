@@ -16,6 +16,11 @@ sudo chmod +x install_dependencies.sh
 sudo ./install_dependencies.sh
 ```
 
+### Chạy trực tiếp
+```bash
+sudo .ven/bin/python3 ddos_defense_service.py
+```
+
 ### Cài đặt dịch vụ hệ thống
 
 ```bash
@@ -48,15 +53,17 @@ sudo systemctl stop ddos-defense
 ```bash
 sudo systemctl restart ddos-defense
 ```
-### 5. Sử dụng API:
+
+### 5. Chạy giao diện Web:
+```bash
+streamlit run web_ui.py
+```
+
+### Updating
+(### Sử dụng API:
 - Bạn có thể tương tác với hệ thống thông qua API:
 
 - Xem trạng thái: curl http://127.0.0.1:5000/api/status
 - Xem danh sách IP bị chặn: curl http://127.0.0.1:5000/api/blocked
 - Bỏ chặn IP: curl -X POST http://127.0.0.1:5000/api/unblock/1.2.3.4
-- Chặn IP thủ công: curl -X POST http://127.0.0.1:5000/api/block/1.2.3.4
-
-### 6. Chạy giao diện Web (tùy chọn):
-```bash
-streamlit run web_ui.py
-```
+- Chặn IP thủ công: curl -X POST http://127.0.0.1:5000/api/block/1.2.3.4)

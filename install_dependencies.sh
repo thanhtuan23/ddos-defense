@@ -7,9 +7,9 @@ sudo apt-get install -y python3-pip tcpdump iptables python3-dev libpcap-dev lib
 
 echo "Installing Python libraries..."
 
-python3 -m venv venv
+python3 -m venv .venv
 source venv/bin/activate
-pip3 install scikit-learn pandas numpy scapy joblib flask netfilterqueue psutil streamlit plotly
+pip3 install scikit-learn pandas scipy numpy scapy statsmodels joblib flask netfilterqueue psutil streamlit plotly
 
 echo "Setting up log directory..."
 mkdir -p logs

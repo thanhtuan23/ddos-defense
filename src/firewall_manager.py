@@ -51,28 +51,70 @@ class FirewallManager:
             )
     
     def block_ips(self, ips: Set[str]) -> None:
-        """
-        Block the specified IP addresses
-        
-        Args:
-            ips: Set of IP addresses to block
-        """
         current_time = time.time()
         
         for ip in ips:
-            if ip in self.blocked_ips:
-                # Already blocked, update the unblock time
-                self.blocked_ips[ip] = current_time + self.block_duration
-                continue
-            
             try:
-                subprocess.run(
-                    ["iptables", "-A", "DDOS_PROTECTION", "-s", ip, "-j", "DROP"],
-                    check=True
-                )
+                # Skip if IP is whitelisted
+                if ip in config.PROTECTION_SETTINGS['WHITELIST']:
+                    continue
                 
-                self.blocked_ips[ip] = current_time + self.block_duration
-                logging.warning(f"Blocked IP {ip} for {self.block_duration} seconds")
+                # 1. Block all traffic from IP
+                subprocess.run([
+                    "iptables", "-A", "DDOS_PROTECTION",
+                    "-s", ip,
+                    "-j", "DROP"
+                ], check=True)
+                
+                # 2. Add rate limiting for HTTP/HTTPS
+                subprocess.run([
+                    "iptables", "-A", "DDOS_PROTECTION",
+                    "-p", "tcp",
+                    "-s", ip,
+                    "-m", "multiport",
+                    "--dports", "80,443,8080",
+                    "-m", "hashlimit",
+                    "--hashlimit-above", "10/sec",
+                    "--hashlimit-burst", "20",
+                    "--hashlimit-mode", "srcip",
+                    "--hashlimit-name", f"ddos_{ip.replace('.', '_')}",
+                    "-j", "DROP"
+                ], check=True)
+                
+                # 3. Limit SYN packets
+                subprocess.run([
+                    "iptables", "-A", "DDOS_PROTECTION",
+                    "-p", "tcp",
+                    "-s", ip,
+                    "--syn",
+                    "-m", "limit",
+                    "--limit", "5/s",
+                    "-j", "DROP"
+                ], check=True)
+                
+                # 4. Limit UDP traffic
+                subprocess.run([
+                    "iptables", "-A", "DDOS_PROTECTION",
+                    "-p", "udp",
+                    "-s", ip,
+                    "-m", "limit",
+                    "--limit", "10/s",
+                    "-j", "DROP"
+                ], check=True)
+                
+                # 5. Limit ICMP
+                subprocess.run([
+                    "iptables", "-A", "DDOS_PROTECTION",
+                    "-p", "icmp",
+                    "-s", ip,
+                    "-m", "limit",
+                    "--limit", "1/s",
+                    "-j", "DROP"
+                ], check=True)
+                
+                self.blocked_ips[ip] = current_time + config.PROTECTION_SETTINGS['BLOCK_DURATION']
+                logging.warning(f"Blocked IP {ip} with comprehensive rules")
+                
             except subprocess.CalledProcessError as e:
                 logging.error(f"Failed to block IP {ip}: {str(e)}")
     
@@ -108,7 +150,100 @@ class FirewallManager:
             }
             for ip, unblock_time in self.blocked_ips.items()
         ]
-    
+
+    def add_advanced_rules(self, ip: str) -> None:
+        """Add advanced protection rules for specific attack types"""
+        try:
+            # Slowloris Protection
+            subprocess.run([
+                "iptables", "-A", "DDOS_PROTECTION",
+                "-p", "tcp",
+                "-s", ip,
+                "--dport", "80",
+                "-m", "connlimit",
+                "--connlimit-above", "20",
+                "-j", "DROP"
+            ], check=True)
+
+            # DNS Amplification Protection
+            subprocess.run([
+                "iptables", "-A", "DDOS_PROTECTION",
+                "-p", "udp",
+                "-s", ip,
+                "--dport", "53",
+                "-m", "limit",
+                "--limit", "5/s",
+                "-j", "DROP"
+            ], check=True)
+
+            # NTP Amplification Protection
+            subprocess.run([
+                "iptables", "-A", "DDOS_PROTECTION",
+                "-p", "udp",
+                "-s", ip,
+                "--dport", "123",
+                "-m", "limit",
+                "--limit", "5/s",
+                "-j", "DROP"
+            ], check=True)
+
+            # SSDP/UPnP Protection
+            subprocess.run([
+                "iptables", "-A", "DDOS_PROTECTION",
+                "-p", "udp",
+                "-s", ip,
+                "--dport", "1900",
+                "-j", "DROP"
+            ], check=True)
+
+            # Connection Tracking Protection
+            subprocess.run([
+                "iptables", "-A", "DDOS_PROTECTION",
+                "-p", "tcp",
+                "-s", ip,
+                "-m", "state",
+                "--state", "NEW",
+                "-m", "limit",
+                "--limit", "50/s",
+                "--limit-burst", "100",
+                "-j", "DROP"
+            ], check=True)
+
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Failed to add advanced rules for IP {ip}: {str(e)}")
+
+    def add_rate_limiting(self, ip: str) -> None:
+        """Add rate limiting rules"""
+        try:
+            # TCP Rate Limiting
+            subprocess.run([
+                "iptables", "-A", "DDOS_PROTECTION",
+                "-p", "tcp",
+                "-s", ip,
+                "-m", "hashlimit",
+                "--hashlimit-name", f"tcp_limit_{ip.replace('.', '_')}",
+                "--hashlimit-above", "100/sec",
+                "--hashlimit-burst", "150",
+                "--hashlimit-mode", "srcip",
+                "-j", "DROP"
+            ], check=True)
+
+            # UDP Rate Limiting
+            subprocess.run([
+                "iptables", "-A", "DDOS_PROTECTION",
+                "-p", "udp",
+                "-s", ip,
+                "-m", "hashlimit",
+                "--hashlimit-name", f"udp_limit_{ip.replace('.', '_')}",
+                "--hashlimit-above", "50/sec",
+                "--hashlimit-burst", "100",
+                "--hashlimit-mode", "srcip",
+                "-j", "DROP"
+            ], check=True)
+
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Failed to add rate limiting for IP {ip}: {str(e)}")
+
     def cleanup(self):
         """Clean up iptables rules when shutting down"""
         try:
