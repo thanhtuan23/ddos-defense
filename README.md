@@ -56,6 +56,7 @@ sudo systemctl restart ddos-defense
 
 ### 5. Chạy giao diện Web:
 ```bash
+source .venv/bin/activate
 streamlit run web_ui.py
 ```
 

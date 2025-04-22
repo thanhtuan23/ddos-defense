@@ -10,6 +10,10 @@ MODEL_PATH = os.path.join('models', 'random_forest_model.pkl')
 DETECTION_THRESHOLD = 0.5
 ATTACK_COUNT_THRESHOLD = 2
 
+# Cài đặt tường lửa
+BLOCK_DURATION = 3600  # Block IPs for 1 hour (in seconds)
+ENABLE_AUTO_BLOCK = True  # Automatically block detected attackers
+
 # Ngưỡng phát hiện DDoS
 DDOS_THRESHOLDS = {
     # Ngưỡng chung
