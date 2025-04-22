@@ -40,21 +40,46 @@ class DDoSDefenseService:
         
         # Create components
         self.packet_capture = PacketCapture(sample_interval=config.SAMPLE_INTERVAL)
-        self.feature_extractor = FeatureExtractor(model_path=self.model_path)
+        
+        # Load model data and create feature extractor
+        self.model_path = config.MODEL_PATH
+        if os.path.exists(self.model_path):
+            self.feature_extractor = FeatureExtractor(model_path=self.model_path)
+        else:
+            logging.error(f"Model file not found at {self.model_path}")
+            sys.exit(1)
+            
+        # Create detector with config settings
         self.detector = DDoSDetector(
             model_path=self.model_path,
             detection_threshold=config.DETECTION_THRESHOLD,
             attack_count_threshold=config.ATTACK_COUNT_THRESHOLD
         )
-        self.firewall = FirewallManager(block_duration=config.BLOCK_DURATION)
+        
+        # Create firewall manager
+        self.firewall = FirewallManager(
+            block_duration=config.BLOCK_DURATION
+        )
+        
+        # Create alert system
         self.alert_system = AlertSystem(
             enable_email=config.ENABLE_EMAIL_ALERTS,
             # enable_webhook=config.ENABLE_WEBHOOK_ALERTS,
             email_config=config.EMAIL_CONFIG,
             # webhook_url=config.WEBHOOK_URL
         )
-        # Thêm behavior analyzer
+
         self.behavior_analyzer = BehaviorAnalyzer(window_size=3600)
+        
+        # Control flags
+        self.running = False
+        self.detection_thread = None
+        
+        # Register signal handlers for graceful shutdown
+        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGTERM, self.signal_handler)
+        
+        logging.info("DDoS Defense Service initialized")
     
     def start(self):
         """Start the DDoS Defense Service"""
