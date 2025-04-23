@@ -113,6 +113,10 @@ class PacketCapture:
         self.raw_socket = None
         self.running = False
         self.lock = threading.Lock()
+        self.interface = config.PACKET_CAPTURE_INTERFACE
+
+        # Log thông tin interface
+        logging.info(f"Initialized packet capture on interface: {self.interface}")
         
         # Tracking different time windows
         self.flows = defaultdict(lambda: {
@@ -142,23 +146,55 @@ class PacketCapture:
         self.running = True
         
         try:
-            # Interface "any" bắt tất cả gói tin
-            if config.PACKET_CAPTURE_INTERFACE == "any":
-                self.raw_socket = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
-            else:
-                # Tạo socket cho interface cụ thể
-                self.raw_socket = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
-                self.raw_socket.bind((config.PACKET_CAPTURE_INTERFACE, 0))
+            # Tạo raw socket với xử lý linh hoạt cho interface
+            self.raw_socket = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(3))
+            
+            if self.interface != "any":
+                try:
+                    # Thử bind với interface cụ thể
+                    self.raw_socket.bind((self.interface, 0))
+                    logging.info(f"Successfully bound to interface {self.interface}")
+                except socket.error as e:
+                    # Nếu không bind được, chuyển sang chế độ "any"
+                    logging.warning(f"Could not bind to {self.interface}, falling back to 'any': {e}")
+                    self.interface = "any"
             
             capture_thread = threading.Thread(target=self._capture_packets)
             capture_thread.daemon = True
             capture_thread.start()
             
-            logging.info(f"Packet capture started on interface {config.PACKET_CAPTURE_INTERFACE}")
+            logging.info(f"Packet capture started on interface {self.interface}")
+            
         except Exception as e:
             logging.error(f"Failed to start capture: {str(e)}")
             logging.exception(e)
+            raise
 
+    def _get_interface_info(self):
+        """Get information about the current interface"""
+        try:
+            if self.interface == "any":
+                return "Capturing on all interfaces"
+            
+            addrs = netifaces.ifaddresses(self.interface)
+            if netifaces.AF_INET in addrs:
+                ipv4 = addrs[netifaces.AF_INET][0]['addr']
+                return f"Interface {self.interface} (IPv4: {ipv4})"
+            return f"Interface {self.interface}"
+        except Exception as e:
+            return f"Interface {self.interface} (Error getting info: {e})"
+
+    def print_status(self):
+        """Print current status of packet capture"""
+        interface_info = self._get_interface_info()
+        stats = {
+            "Interface": interface_info,
+            "Running": self.running,
+            "Tracked Flows": len(self.flows),
+            "Attack Patterns": len(self.attack_patterns)
+        }
+        logging.info("Packet Capture Status: %s", stats)
+        
     def _process_packet(self, packet_data: bytes):
         try:
             # Parse Ethernet header

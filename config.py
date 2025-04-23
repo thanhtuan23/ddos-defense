@@ -1,9 +1,41 @@
 # config.py
 import os
+import netifaces
+import logging
+
+def get_default_interface():
+    """
+    Tự động phát hiện network interface chính đang được sử dụng
+    Returns:
+        str: Tên của interface hoặc "any" nếu không thể xác định
+    """
+    try:
+        # Cách 1: Lấy interface của default gateway
+        gateways = netifaces.gateways()
+        if 'default' in gateways and netifaces.AF_INET in gateways['default']:
+            return gateways['default'][netifaces.AF_INET][1]
+        
+        # Cách 2: Lấy interface đầu tiên không phải loopback
+        interfaces = netifaces.interfaces()
+        for iface in interfaces:
+            if iface != 'lo':  # Bỏ qua loopback
+                addrs = netifaces.ifaddresses(iface)
+                if netifaces.AF_INET in addrs:  # Kiểm tra có IPv4 không
+                    return iface
+        
+        # Nếu không tìm thấy, sử dụng "any"
+        return "any"
+    except Exception as e:
+        logging.warning(f"Could not determine default interface: {e}")
+        return "any"
 
 # Cấu hình hệ thống
-PACKET_CAPTURE_INTERFACE = "any"
+PACKET_CAPTURE_INTERFACE = get_default_interface()  # Giao diện mạng để bắt gói tin
+PACKET_CAPTURE_FILTER = "tcp or udp or icmp"  # Bộ lọc gói tin để bắt
 SAMPLE_INTERVAL = 1  # 1 giây để phát hiện nhanh hơn
+
+# Log interface được chọn
+logging.info(f"Using network interface: {PACKET_CAPTURE_INTERFACE}")
 
 # Cài đặt phát hiện
 MODEL_PATH = os.path.join('models', 'random_forest_model.pkl')
@@ -17,33 +49,33 @@ ENABLE_AUTO_BLOCK = True  # Automatically block detected attackers
 # Ngưỡng phát hiện DDoS
 DDOS_THRESHOLDS = {
     # Ngưỡng chung
-    'PACKETS_PER_SECOND': 500,
-    'BYTES_PER_SECOND': 1000000,  # 1MB/s
+    'PACKETS_PER_SECOND': 50,  # 50 gói tin/giây
+    'BYTES_PER_SECOND': 10000,  # 10KB/giây
     'NEW_CONNECTIONS': 100,  # Gói SYN/giây
     
     # Cụ thể cho HTTP/HTTPS
-    'HTTP_REQUESTS_PER_SECOND': 100,
+    'HTTP_REQUESTS_PER_SECOND': 100, # 100 yêu cầu/giây
     'HTTP_ERROR_RATE': 0.3,  # 30% lỗi có thể là tấn công
     
     # Cụ thể cho TCP
-    'TCP_SYN_RATE': 50,
+    'TCP_SYN_RATE': 50, # 50 gói SYN/giây
     'TCP_FLAGS_RATIO': 0.8,  # Tỷ lệ SYN so với các cờ khác
     
     # Cụ thể cho UDP
-    'UDP_PACKETS_PER_SECOND': 1000,
-    'UDP_BYTES_PER_SECOND': 2000000,  # 2MB/s
+    'UDP_PACKETS_PER_SECOND': 100, # 100 gói UDP/giây
+    'UDP_BYTES_PER_SECOND': 200,  # 200 bytes/giây
     
     # Cụ thể cho ICMP
-    'ICMP_PACKETS_PER_SECOND': 50,
+    'ICMP_PACKETS_PER_SECOND': 50, # 50 gói ICMP/giây
     
     # Cụ thể cho kết nối
-    'CONCURRENT_CONNECTIONS': 200,
-    'CONNECTION_RATE': 50,
+    'CONCURRENT_CONNECTIONS': 200, # 200 kết nối đồng thời
+    'CONNECTION_RATE': 50, # 50 kết nối mới/giây
     
     # Ngưỡng hành vi
-    'ENTROPY_THRESHOLD': 0.6,
-    'PACKET_SIZE_VARIATION': 0.1,
-    'INTER_ARRIVAL_VARIATION': 0.1,
+    'ENTROPY_THRESHOLD': 0.6, # Ngưỡng entropy cho hành vi bất thường
+    'PACKET_SIZE_VARIATION': 0.1, # 10% biến thể kích thước gói tin
+    'INTER_ARRIVAL_VARIATION': 0.1, # 10% biến thể thời gian giữa các gói tin
 }
 
 # Cửa sổ thời gian cho các kiểm tra khác nhau (tính bằng giây)

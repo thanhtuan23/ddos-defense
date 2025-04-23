@@ -37,6 +37,9 @@ class DDoSDefenseService:
     def __init__(self):
         """Initialize the DDoS Defense Service"""
         logging.info("Initializing DDoS Defense Service")
+
+        # Log thông tin hệ thống
+        self._log_system_info()
         
         # Create components
         self.packet_capture = PacketCapture(sample_interval=config.SAMPLE_INTERVAL)
@@ -81,6 +84,25 @@ class DDoSDefenseService:
         
         logging.info("DDoS Defense Service initialized")
     
+    def _log_system_info(self):
+        """Log thông tin về hệ thống và network interfaces"""
+        try:
+            # Log tất cả interfaces có sẵn
+            interfaces = netifaces.interfaces()
+            interface_info = []
+            for iface in interfaces:
+                addrs = netifaces.ifaddresses(iface)
+                info = {"name": iface}
+                if netifaces.AF_INET in addrs:
+                    info["ipv4"] = addrs[netifaces.AF_INET][0]['addr']
+                interface_info.append(info)
+            
+            logging.info("Available network interfaces: %s", interface_info)
+            logging.info("Selected interface for capture: %s", config.PACKET_CAPTURE_INTERFACE)
+            
+        except Exception as e:
+            logging.error("Error getting system information: %s", e)
+            
     def start(self):
         """Start the DDoS Defense Service"""
         if self.running:
